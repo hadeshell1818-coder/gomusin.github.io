@@ -65,6 +65,15 @@
   }
   input:focus { border-color: var(--accent); }
 
+  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .names button {
+    font: inherit; font-size: 15px; font-weight: 600; padding: 10px 6px; border-radius: 10px; cursor: pointer;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--text); position: relative;
+  }
+  .names button.done::after { content: '✓'; position: absolute; top: 2px; right: 6px; font-size: 12px; color: var(--ok); }
+  .names button.on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .names button.etc { font-weight: 500; color: var(--muted); border-style: dashed; }
+  #name { margin-top: 8px; }
   .mine { display: none; border-color: var(--ok); }
   .mine.show { display: block; }
   .mine .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -148,8 +157,9 @@
   <!-- 주문 화면 -->
   <section id="viewOrder">
     <div class="card">
-      <label class="lbl" for="name">이름</label>
-      <input type="text" id="name" placeholder="예) 김영업" maxlength="20" autocomplete="name">
+      <div class="lbl">내 이름을 눌러주세요 <span style="font-weight:400">(✓ = 주문 완료)</span></div>
+      <div class="names" id="names"></div>
+      <input type="text" id="name" placeholder="이름 직접 입력" maxlength="20" autocomplete="name" hidden>
     </div>
 
     <div class="card mine" id="mine">
@@ -180,6 +190,10 @@
     <div class="card">
       <div class="lbl">메뉴별 집계</div>
       <ul class="agg" id="agg"></ul>
+    </div>
+    <div class="card" id="pendingCard">
+      <div class="lbl">아직 안 고른 사람 <span id="pendingN"></span></div>
+      <div class="who" id="pending" style="font-size:15px"></div>
     </div>
     <div class="card">
       <div class="lbl">사람별 주문</div>
@@ -213,6 +227,12 @@
 /* ===================== 설정 ===================== */
 // Apps Script 웹 앱 URL (…/exec). 비워두면 이 기기에만 저장되는 미리보기 모드.
 const SCRIPT_URL = '';
+
+// 영업과 명단. 여기 적힌 이름이 버튼으로 나와요.
+const NAMES = [
+  '팀원1', '팀원2', '팀원3', '팀원4', '팀원5',
+  '팀원6', '팀원7', '팀원8', '팀원9', '팀원10',
+];
 
 // 메뉴판. 매장/시즌에 따라 자유롭게 고치세요.
 // only: 'ICE' 또는 'HOT' 이면 온도 선택이 고정돼요.
@@ -317,6 +337,7 @@ async function load(silent) {
     const r = await api();
     if (!r.ok) throw new Error(r.error || '불러오기 실패');
     state.orders = r.orders || [];
+    renderNames();
     renderMine();
     renderResult();
     $('updated').textContent = '마지막 업데이트 ' + new Date().toLocaleTimeString('ko-KR');
@@ -328,6 +349,35 @@ async function load(silent) {
 }
 
 /* ---------- 주문 화면 ---------- */
+let customName = false;
+function renderNames() {
+  const cur = $('name').value.trim();
+  const ordered = new Set(state.orders.map((o) => o.name));
+  const box = $('names');
+  box.innerHTML = '';
+  NAMES.forEach((n) => {
+    const b = document.createElement('button');
+    b.textContent = n;
+    b.className = (n === cur && !customName ? 'on ' : '') + (ordered.has(n) ? 'done' : '');
+    b.onclick = () => { customName = false; setName(n); };
+    box.appendChild(b);
+  });
+  const etc = document.createElement('button');
+  etc.textContent = '+ 직접 입력';
+  etc.className = 'etc' + (customName ? ' on' : '');
+  etc.onclick = () => { customName = true; setName(''); $('name').focus(); };
+  box.appendChild(etc);
+  $('name').hidden = !customName;
+}
+
+function setName(n) {
+  $('name').value = n;
+  if (n) store('coffee-name', n);
+  renderNames();
+  renderMine();
+  renderBar();
+}
+
 function renderCats() {
   const cats = ['전체', ...Object.keys(MENU)];
   $('cats').innerHTML = '';
@@ -446,6 +496,11 @@ function groups() {
   return [...map.entries()].sort((a, b) => b[1].list.length - a[1].list.length || a[0].localeCompare(b[0], 'ko'));
 }
 
+function pendingNames() {
+  const ordered = new Set(state.orders.map((o) => o.name));
+  return NAMES.filter((n) => !ordered.has(n));
+}
+
 function tag(t) { return t ? '<span class="t ' + esc(t) + '">' + esc(t) + '</span>' : ''; }
 function who(o) { return esc(o.name) + (o.memo ? '(' + esc(o.memo) + ')' : ''); }
 
@@ -458,6 +513,10 @@ function renderResult() {
         '</span><span class="cnt">' + v.list.length + '</span></div><div class="who">' +
         v.list.map(who).join(', ') + '</div></li>').join('')
     : '<li class="empty">아직 주문이 없어요</li>';
+  const pending = pendingNames();
+  $('pendingCard').hidden = !NAMES.length;
+  $('pendingN').textContent = '(' + pending.length + ')';
+  $('pending').textContent = pending.length ? pending.join(', ') : '모두 골랐어요 🎉';
   const people = [...state.orders].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   $('people').innerHTML = people.length
     ? people.map((o) => '<li><div class="top"><span class="name">' + esc(o.name) + '</span><span>' +
@@ -473,6 +532,8 @@ function copyText() {
     if (memos.length) lines.push('   └ ' + memos.join(' / '));
   });
   lines.push('', '주문자: ' + state.orders.map((o) => o.name).join(', '));
+  const pending = pendingNames();
+  if (NAMES.length && pending.length) lines.push('미선택: ' + pending.join(', '));
   const text = lines.join('\n');
   const done = () => toast('복사했어요! 카톡에 붙여넣기 하세요');
   if (navigator.clipboard && window.isSecureContext) {
@@ -529,8 +590,10 @@ function showTab(tab) {
 /* ---------- 시작 ---------- */
 $('roundLabel').textContent = ROUND;
 $('demoBanner').hidden = !DEMO;
-$('name').value = store('coffee-name') || '';
-$('name').addEventListener('input', () => { renderMine(); renderBar(); });
+const savedName = store('coffee-name') || '';
+customName = !!savedName && !NAMES.includes(savedName);
+$('name').value = savedName;
+$('name').addEventListener('input', () => { store('coffee-name', $('name').value.trim()); renderMine(); renderBar(); });
 $('search').addEventListener('input', (e) => { state.q = e.target.value; renderMenu(); });
 document.querySelectorAll('.temps button').forEach((b) => {
   b.onclick = () => { state.temp = b.dataset.t; renderBar(); };
@@ -543,6 +606,7 @@ $('refreshBtn').onclick = () => load();
 $('copyBtn').onclick = copyText;
 $('clearBtn').onclick = clearAll;
 
+renderNames();
 renderCats();
 renderMenu();
 renderBar();
