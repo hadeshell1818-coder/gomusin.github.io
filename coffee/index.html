@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>영업과 커피 주문</title>
+<meta property="og:title" content="☕ 영업과 커피 주문">
+<meta property="og:description" content="마실 음료를 직접 골라주세요. 자동으로 집계돼요.">
+<meta name="description" content="마실 음료를 직접 골라주세요. 자동으로 집계돼요.">
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --line: #e4e2dc;
+    --accent: #f5c400;
+    --accent-ink: #1d1d1f;
+    --navy: #1f2a44;
+    --hot: #d9480f;
+    --ice: #1971c2;
+    --ok: #2b8a3e;
+    --danger: #c92a2a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416;
+      --card: #1f1f22;
+      --text: #f1f1f3;
+      --muted: #a0a0a8;
+      --line: #33333a;
+      --navy: #e8ecf5;
+      --hot: #ff8a50;
+      --ice: #6cb4ff;
+      --ok: #69db7c;
+      --danger: #ff8787;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 120px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: -0.3px; }
+  .round { font-size: 13px; color: var(--muted); }
+  .banner { background: #fff3bf; color: #5c4400; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+  @media (prefers-color-scheme: dark) { .banner { background: #3b3210; color: #ffe066; } }
+
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 14px; position: sticky; top: 8px; z-index: 5; }
+  .tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 10px; border-radius: 9px; cursor: pointer; }
+  .tabs button.on { background: var(--accent); color: var(--accent-ink); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  label.lbl { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  input[type=text], input[type=search], input[type=password] {
+    width: 100%; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .mine { display: none; border-color: var(--ok); }
+  .mine.show { display: block; }
+  .mine .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mine b { font-size: 17px; }
+
+  .cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin: 10px 0 8px; scrollbar-width: none; }
+  .cats::-webkit-scrollbar { display: none; }
+  .cats button { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+  .cats button.on { background: var(--navy); color: var(--card); border-color: var(--navy); }
+
+  .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .menu button {
+    text-align: left; border: 1.5px solid var(--line); background: var(--card); color: var(--text);
+    font: inherit; font-size: 15px; padding: 12px 10px; border-radius: 12px; cursor: pointer; min-height: 52px;
+  }
+  .menu button small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .menu button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--card)); font-weight: 700; }
+  .empty { color: var(--muted); font-size: 14px; padding: 16px 0; text-align: center; grid-column: 1 / -1; }
+
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); z-index: 10;
+  }
+  .bar .in { max-width: 560px; margin: 0 auto; }
+  .sel { font-size: 14px; color: var(--muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sel b { color: var(--text); }
+  .temps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .temps button { font: inherit; font-weight: 700; padding: 9px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
+  .temps button.hot.on { border-color: var(--hot); color: var(--hot); }
+  .temps button.ice.on { border-color: var(--ice); color: var(--ice); }
+  .temps button:disabled { opacity: .35; cursor: not-allowed; }
+  .memo-row { display: flex; gap: 8px; }
+  .memo-row input { flex: 1; padding: 10px 12px; font-size: 15px; }
+
+  .btn { font: inherit; font-weight: 700; border: 0; border-radius: 10px; padding: 11px 16px; cursor: pointer; background: var(--accent); color: var(--accent-ink); white-space: nowrap; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 600; padding: 8px 12px; font-size: 14px; }
+  .btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--line); font-weight: 600; padding: 8px 12px; font-size: 14px; }
+
+  .total { display: flex; align-items: baseline; justify-content: space-between; }
+  .total .n { font-size: 28px; font-weight: 800; }
+  .agg { list-style: none; margin: 0; padding: 0; }
+  .agg li { padding: 10px 0; border-top: 1px solid var(--line); }
+  .agg li:first-child { border-top: 0; }
+  .agg .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .agg .name { font-weight: 700; }
+  .agg .cnt { font-weight: 800; font-size: 18px; min-width: 44px; text-align: right; }
+  .agg .who { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .t { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-right: 6px; vertical-align: 1px; }
+  .t.HOT { color: var(--hot); border: 1px solid var(--hot); }
+  .t.ICE { color: var(--ice); border: 1px solid var(--ice); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%) translateY(10px); opacity: 0;
+    background: var(--navy); color: var(--card); padding: 10px 16px; border-radius: 999px; font-size: 14px;
+    transition: .2s; pointer-events: none; z-index: 20; max-width: calc(100% - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>☕ 영업과 커피 주문</h1>
+    <span class="round" id="roundLabel"></span>
+  </header>
+
+  <div class="banner" id="demoBanner" hidden>
+    ⚠️ 아직 서버(구글 시트)가 연결되지 않은 <b>미리보기 모드</b>예요. 지금은 이 기기에서만 저장돼요.
+    (설정: coffee/README.md)
+  </div>
+
+  <nav class="tabs">
+    <button id="tabOrder" class="on">주문하기</button>
+    <button id="tabResult">집계 보기 <span id="tabCount"></span></button>
+  </nav>
+
+  <!-- 주문 화면 -->
+  <section id="viewOrder">
+    <div class="card">
+      <label class="lbl" for="name">이름</label>
+      <input type="text" id="name" placeholder="예) 김영업" maxlength="20" autocomplete="name">
+    </div>
+
+    <div class="card mine" id="mine">
+      <div class="row">
+        <div>
+          <div class="lbl" style="margin:0">내 주문 ✅</div>
+          <b id="mineText"></b>
+        </div>
+        <button class="btn danger" id="cancelBtn">취소</button>
+      </div>
+      <div class="hint">다른 메뉴를 골라 다시 주문하면 변경돼요.</div>
+    </div>
+
+    <input type="search" id="search" placeholder="🔍 메뉴 검색">
+    <div class="cats" id="cats"></div>
+    <div class="menu" id="menu"></div>
+  </section>
+
+  <!-- 집계 화면 -->
+  <section id="viewResult" hidden>
+    <div class="card total">
+      <div><div class="lbl" style="margin:0">총 주문</div><span class="n" id="totalN">0</span> 잔</div>
+      <div class="actions">
+        <button class="btn ghost" id="refreshBtn">새로고침</button>
+        <button class="btn" id="copyBtn">카톡용 복사</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">메뉴별 집계</div>
+      <ul class="agg" id="agg"></ul>
+    </div>
+    <div class="card">
+      <div class="lbl">사람별 주문</div>
+      <ul class="agg" id="people"></ul>
+    </div>
+    <div class="actions" style="justify-content:flex-end">
+      <button class="btn danger" id="clearBtn">이번 주문 전체 초기화</button>
+    </div>
+    <div class="hint" id="updated"></div>
+  </section>
+</div>
+
+<!-- 하단 주문 바 -->
+<div class="bar" id="bar">
+  <div class="in">
+    <div class="sel" id="selText">메뉴를 골라주세요</div>
+    <div class="temps">
+      <button class="ice" data-t="ICE">🧊 ICE</button>
+      <button class="hot" data-t="HOT">🔥 HOT</button>
+    </div>
+    <div class="memo-row">
+      <input type="text" id="memo" placeholder="요청사항 (연하게, 샷추가, 덜 달게…)" maxlength="60">
+      <button class="btn" id="submitBtn" disabled>주문</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 설정 ===================== */
+// Apps Script 웹 앱 URL (…/exec). 비워두면 이 기기에만 저장되는 미리보기 모드.
+const SCRIPT_URL = '';
+
+// 메뉴판. 매장/시즌에 따라 자유롭게 고치세요.
+// only: 'ICE' 또는 'HOT' 이면 온도 선택이 고정돼요.
+const MENU = {
+  '커피': [
+    { n: '아메리카노' },
+    { n: '꿀아메리카노' },
+    { n: '헤이즐넛아메리카노' },
+    { n: '카페라떼' },
+    { n: '바닐라라떼' },
+    { n: '헤이즐넛라떼' },
+    { n: '카라멜마끼아또' },
+    { n: '카페모카' },
+    { n: '돌체라떼' },
+    { n: '연유라떼' },
+    { n: '아인슈페너' },
+    { n: '콜드브루', only: 'ICE' },
+    { n: '콜드브루라떼', only: 'ICE' },
+    { n: '에스프레소', only: 'HOT' },
+  ],
+  '디카페인': [
+    { n: '디카페인 아메리카노' },
+    { n: '디카페인 카페라떼' },
+    { n: '디카페인 바닐라라떼' },
+  ],
+  '라떼(논커피)': [
+    { n: '초코라떼' },
+    { n: '녹차라떼' },
+    { n: '고구마라떼' },
+    { n: '곡물라떼' },
+    { n: '딸기라떼', only: 'ICE' },
+    { n: '민트초코라떼', only: 'ICE' },
+  ],
+  '티': [
+    { n: '복숭아아이스티', only: 'ICE' },
+    { n: '유자차' },
+    { n: '레몬차' },
+    { n: '자몽차' },
+    { n: '캐모마일' },
+    { n: '페퍼민트' },
+    { n: '얼그레이' },
+    { n: '녹차' },
+  ],
+  '에이드': [
+    { n: '레몬에이드', only: 'ICE' },
+    { n: '자몽에이드', only: 'ICE' },
+    { n: '청포도에이드', only: 'ICE' },
+    { n: '블루레몬에이드', only: 'ICE' },
+  ],
+  '스무디·프라페': [
+    { n: '플레인요거트스무디', only: 'ICE' },
+    { n: '딸기요거트스무디', only: 'ICE' },
+    { n: '망고스무디', only: 'ICE' },
+    { n: '쿠키프라페', only: 'ICE' },
+    { n: '민트프라페', only: 'ICE' },
+    { n: '초코프라페', only: 'ICE' },
+  ],
+};
+/* =============================================== */
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+// 주문 회차: 링크에 ?r=이름 을 붙이면 그 이름으로, 없으면 오늘 날짜(한국시간)로 묶어요.
+const ROUND = (params.get('r') || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)).slice(0, 30);
+const DEMO = !SCRIPT_URL;
+
+const ALL = Object.entries(MENU).flatMap(([cat, items]) => items.map((it) => ({ ...it, cat })));
+const state = { cat: '전체', q: '', menu: null, temp: 'ICE', orders: [], loading: false };
+
+function store(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; }
+}
+
+/* ---------- 서버 통신 ---------- */
+async function api(body) {
+  if (DEMO) {
+    const key = 'coffee-demo-' + ROUND;
+    let list = [];
+    try { list = JSON.parse(store(key) || '[]'); } catch (e) {}
+    if (!body) return { ok: true, orders: list };
+    if (body.action === 'clear') list = [];
+    else {
+      list = list.filter((o) => o.name !== body.name);
+      if (body.action !== 'cancel') list.push({ name: body.name, menu: body.menu, temp: body.temp, memo: body.memo, updatedAt: new Date().toISOString() });
+    }
+    store(key, JSON.stringify(list));
+    return { ok: true };
+  }
+  if (!body) {
+    const res = await fetch(SCRIPT_URL + '?round=' + encodeURIComponent(ROUND) + '&t=' + Date.now());
+    return res.json();
+  }
+  // text/plain 으로 보내야 CORS preflight 없이 Apps Script 에 전달돼요.
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ round: ROUND, ...body }) });
+  return res.json();
+}
+
+async function load(silent) {
+  if (state.loading) return;
+  state.loading = true;
+  try {
+    const r = await api();
+    if (!r.ok) throw new Error(r.error || '불러오기 실패');
+    state.orders = r.orders || [];
+    renderMine();
+    renderResult();
+    $('updated').textContent = '마지막 업데이트 ' + new Date().toLocaleTimeString('ko-KR');
+  } catch (e) {
+    if (!silent) toast('불러오기 실패: 네트워크를 확인해주세요');
+  } finally {
+    state.loading = false;
+  }
+}
+
+/* ---------- 주문 화면 ---------- */
+function renderCats() {
+  const cats = ['전체', ...Object.keys(MENU)];
+  $('cats').innerHTML = '';
+  cats.forEach((c) => {
+    const b = document.createElement('button');
+    b.textContent = c;
+    b.className = c === state.cat ? 'on' : '';
+    b.onclick = () => { state.cat = c; renderCats(); renderMenu(); };
+    $('cats').appendChild(b);
+  });
+}
+
+function renderMenu() {
+  const q = state.q.replace(/\s/g, '');
+  const items = ALL.filter((it) =>
+    (state.cat === '전체' || it.cat === state.cat) && (!q || it.n.replace(/\s/g, '').includes(q)));
+  const box = $('menu');
+  box.innerHTML = '';
+  items.forEach((it) => {
+    const b = document.createElement('button');
+    b.className = state.menu && state.menu.n === it.n ? 'on' : '';
+    b.textContent = it.n;
+    if (it.only) {
+      const s = document.createElement('small');
+      s.textContent = it.only + ' only';
+      b.appendChild(s);
+    }
+    b.onclick = () => selectMenu(it);
+    box.appendChild(b);
+  });
+  // 메뉴판에 없는 음료는 검색어 그대로 주문
+  if (q) {
+    const b = document.createElement('button');
+    b.innerHTML = '';
+    b.textContent = '“' + state.q.trim() + '” 직접 입력';
+    const s = document.createElement('small');
+    s.textContent = '메뉴판에 없을 때';
+    b.appendChild(s);
+    b.className = state.menu && state.menu.custom && state.menu.n === state.q.trim() ? 'on' : '';
+    b.onclick = () => selectMenu({ n: state.q.trim(), custom: true });
+    box.appendChild(b);
+  }
+  if (!items.length && !q) box.innerHTML = '<div class="empty">메뉴가 없어요</div>';
+}
+
+function selectMenu(it) {
+  state.menu = it;
+  if (it.only) state.temp = it.only;
+  renderMenu();
+  renderBar();
+}
+
+function renderBar() {
+  const it = state.menu;
+  document.querySelectorAll('.temps button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.t === state.temp);
+    b.disabled = !!(it && it.only && it.only !== b.dataset.t);
+  });
+  $('selText').innerHTML = it
+    ? '선택: <b>' + esc(state.temp) + ' ' + esc(it.n) + '</b>'
+    : '메뉴를 골라주세요';
+  $('submitBtn').disabled = !it || !$('name').value.trim();
+}
+
+function myOrder() {
+  const name = $('name').value.trim();
+  return name ? state.orders.find((o) => o.name === name) : null;
+}
+
+function renderMine() {
+  const o = myOrder();
+  $('mine').classList.toggle('show', !!o);
+  if (o) $('mineText').textContent = label(o) + (o.memo ? ' · ' + o.memo : '');
+  $('submitBtn').textContent = o ? '변경' : '주문';
+}
+
+async function submit() {
+  const name = $('name').value.trim();
+  if (!name) { $('name').focus(); return toast('이름을 입력해주세요'); }
+  if (!state.menu) return toast('메뉴를 골라주세요');
+  $('submitBtn').disabled = true;
+  try {
+    const r = await api({ name, menu: state.menu.n, temp: state.temp, memo: $('memo').value.trim() });
+    if (!r.ok) throw new Error(r.error);
+    store('coffee-name', name);
+    toast('✅ ' + state.temp + ' ' + state.menu.n + ' 주문 완료!');
+    state.menu = null;
+    $('memo').value = '';
+    renderMenu();
+    await load(true);
+  } catch (e) {
+    toast('주문 실패: ' + (e.message || '네트워크 오류'));
+  } finally {
+    renderBar();
+  }
+}
+
+async function cancel() {
+  const o = myOrder();
+  if (!o || !confirm(label(o) + ' 주문을 취소할까요?')) return;
+  const r = await api({ action: 'cancel', name: o.name }).catch(() => ({ ok: false }));
+  toast(r.ok ? '주문을 취소했어요' : '취소 실패');
+  load(true);
+}
+
+/* ---------- 집계 화면 ---------- */
+function label(o) { return (o.temp ? o.temp + ' ' : '') + o.menu; }
+
+function groups() {
+  const map = new Map();
+  state.orders.forEach((o) => {
+    const k = label(o);
+    if (!map.has(k)) map.set(k, { o, list: [] });
+    map.get(k).list.push(o);
+  });
+  return [...map.entries()].sort((a, b) => b[1].list.length - a[1].list.length || a[0].localeCompare(b[0], 'ko'));
+}
+
+function tag(t) { return t ? '<span class="t ' + esc(t) + '">' + esc(t) + '</span>' : ''; }
+function who(o) { return esc(o.name) + (o.memo ? '(' + esc(o.memo) + ')' : ''); }
+
+function renderResult() {
+  $('totalN').textContent = state.orders.length;
+  $('tabCount').textContent = state.orders.length ? '(' + state.orders.length + ')' : '';
+  const g = groups();
+  $('agg').innerHTML = g.length
+    ? g.map(([, v]) => '<li><div class="top"><span class="name">' + tag(v.o.temp) + esc(v.o.menu) +
+        '</span><span class="cnt">' + v.list.length + '</span></div><div class="who">' +
+        v.list.map(who).join(', ') + '</div></li>').join('')
+    : '<li class="empty">아직 주문이 없어요</li>';
+  const people = [...state.orders].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  $('people').innerHTML = people.length
+    ? people.map((o) => '<li><div class="top"><span class="name">' + esc(o.name) + '</span><span>' +
+        tag(o.temp) + esc(o.menu) + '</span></div>' + (o.memo ? '<div class="who">' + esc(o.memo) + '</div>' : '') + '</li>').join('')
+    : '<li class="empty">-</li>';
+}
+
+function copyText() {
+  const lines = ['[☕ 커피 주문] ' + ROUND + ' · 총 ' + state.orders.length + '잔', ''];
+  groups().forEach(([k, v]) => {
+    lines.push('• ' + k + ' × ' + v.list.length);
+    const memos = v.list.filter((o) => o.memo).map((o) => o.memo);
+    if (memos.length) lines.push('   └ ' + memos.join(' / '));
+  });
+  lines.push('', '주문자: ' + state.orders.map((o) => o.name).join(', '));
+  const text = lines.join('\n');
+  const done = () => toast('복사했어요! 카톡에 붙여넣기 하세요');
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { prompt('아래 내용을 복사하세요', text); }
+  ta.remove();
+}
+
+async function clearAll() {
+  const pin = DEMO ? '' : prompt('관리자 비밀번호를 입력하세요');
+  if (pin === null) return;
+  if (!confirm(ROUND + ' 주문을 전부 지울까요?')) return;
+  const r = await api({ action: 'clear', pin }).catch(() => ({ ok: false }));
+  toast(r.ok ? '초기화했어요' : (r.error || '초기화 실패'));
+  load(true);
+}
+
+/* ---------- 공통 ---------- */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+let pollTimer;
+function showTab(tab) {
+  const isOrder = tab === 'order';
+  $('tabOrder').classList.toggle('on', isOrder);
+  $('tabResult').classList.toggle('on', !isOrder);
+  $('viewOrder').hidden = !isOrder;
+  $('viewResult').hidden = isOrder;
+  $('bar').hidden = !isOrder;
+  clearInterval(pollTimer);
+  if (!isOrder) { load(); pollTimer = setInterval(() => load(true), 10000); }
+}
+
+/* ---------- 시작 ---------- */
+$('roundLabel').textContent = ROUND;
+$('demoBanner').hidden = !DEMO;
+$('name').value = store('coffee-name') || '';
+$('name').addEventListener('input', () => { renderMine(); renderBar(); });
+$('search').addEventListener('input', (e) => { state.q = e.target.value; renderMenu(); });
+document.querySelectorAll('.temps button').forEach((b) => {
+  b.onclick = () => { state.temp = b.dataset.t; renderBar(); };
+});
+$('submitBtn').onclick = submit;
+$('cancelBtn').onclick = cancel;
+$('tabOrder').onclick = () => showTab('order');
+$('tabResult').onclick = () => showTab('result');
+$('refreshBtn').onclick = () => load();
+$('copyBtn').onclick = copyText;
+$('clearBtn').onclick = clearAll;
+
+renderCats();
+renderMenu();
+renderBar();
+load(true);
+if (params.get('view') === 'result') showTab('result');
+</script>
+</body>
+</html>
